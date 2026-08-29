@@ -5,14 +5,50 @@ import unicodedata
 import os
 
 st.set_page_config(page_title="MD13 | Quản Lý Công Thức", layout="wide")
-st.title("🍹 MADAM13 | Tra Cứu Công Thức")
 
-# 📂 Tự động nhận diện thư mục chứa file app.py hiện tại (chạy được cả trên máy tính lẫn trên Web)
+# Đường dẫn thư mục và file Excel
 THU_MUC_GOC = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(THU_MUC_GOC, "du_lieu.xlsx")
 
-# 🔐 Mật khẩu chung bảo vệ các chức năng Quản trị (Thêm, Sửa, Xóa)
-MAT_KHAU_QUAN_TRI = "050212"
+# 🔐 Cấu hình Tài khoản và Mật khẩu tổng để truy cập trang web
+# Bạn có thể thay đổi tùy ý tên đăng nhập và mật khẩu ở đây
+USER_DANG_NHAP = "admin"
+MAT_KHAU_DANG_NHAP = "123456"
+
+# Quản lý trạng thái đăng nhập trong session_state
+if "da_dang_nhap" not in st.session_state:
+    st.session_state.da_dang_nhap = False
+
+# ----------------- GIAO DIỆN ĐĂNG NHẬP (NẾU CHƯA ĐĂNG NHẬP) -----------------
+if not st.session_state.da_dang_nhap:
+    st.title("🔒 Đăng Nhập Hệ Thống")
+    st.markdown("Vui lòng nhập thông tin tài khoản để truy cập vào ứng dụng quản lý công thức.")
+    
+    with st.form("form_dang_nhap"):
+        input_user = st.text_input("Tên đăng nhập:")
+        input_pass = st.text_input("Mật khẩu:", type="password")
+        submit_btn = st.form_submit_button("Đăng nhập", type="primary", use_container_width=True)
+        
+        if submit_btn:
+            if input_user == USER_DANG_NHAP and input_pass == MAT_KHAU_DANG_NHAP:
+                st.session_state.da_dang_nhap = True
+                st.success("🎉 Đăng nhập thành công! Đang tải ứng dụng...")
+                st.rerun()
+            else:
+                st.error("❌ Tên đăng nhập hoặc mật khẩu không chính xác!")
+                
+    st.stop( )  # Dừng lại ở đây, không cho hiển thị phần code bên dưới nếu chưa đăng nhập
+
+
+# ----------------- GIAO DIỆN CHÍNH CỦA ỨNG DỤNG (SAU KHI ĐÃ ĐĂNG NHẬP) -----------------
+st.title("🍹 MADAM13 | Công Thức Pha Chế")
+
+# Nút đăng xuất ở góc trên thanh Sidebar hoặc màn hình chính
+with st.sidebar:
+    st.write(f"👤 Đang đăng nhập: **{USER_DANG_NHAP}**")
+    if st.button("🚪 Đăng xuất", use_container_width=True):
+        st.session_state.da_dang_nhap = False
+        st.rerun()
 
 # 1. Hàm chuẩn hóa tiếng Việt
 def xu_ly_chu(text):
@@ -41,20 +77,9 @@ def load_data():
 
 df = load_data()
 
-# 3. Hàm Popup Thêm món mới (Có kiểm tra mật khẩu)
+# 3. Hàm Popup Thêm món mới
 @st.dialog("➕ Thêm công thức món mới", width="large")
 def dialog_them_mon(danh_sach_nhom_hien_tai):
-    st.info("🔐 Vui lòng nhập mật khẩu quản trị để tiếp tục.")
-    mat_khau_nhap = st.text_input("Mật khẩu:", type="password", key="pwd_add_dialog")
-    
-    if mat_khau_nhap != MAT_KHAU_QUAN_TRI:
-        if mat_khau_nhap != "":
-            st.error("❌ Mật khẩu không chính xác!")
-        return
-
-    st.success("✅ Xác thực thành công! Bạn có thể nhập thông tin bên dưới.")
-    st.markdown("---")
-
     ten_mon = st.text_input("Tên món:", key="add_ten_mon")
     
     nhom_chon_lua = ["Chọn nhóm có sẵn", "➕ Tạo nhóm mới..."]
@@ -117,20 +142,9 @@ def dialog_them_mon(danh_sach_nhom_hien_tai):
             st.cache_data.clear()
             st.rerun()
 
-# 4. Hàm Popup Chỉnh sửa món (Có kiểm tra mật khẩu)
+# 4. Hàm Popup Chỉnh sửa món
 @st.dialog("✏️ Chỉnh sửa thông tin món", width="large")
 def dialog_sua_mon(index_dong, row_data, danh_sach_nhom_hien_tai):
-    st.info("🔐 Vui lòng nhập mật khẩu quản trị để tiếp tục chỉnh sửa.")
-    mat_khau_nhap = st.text_input("Mật khẩu:", type="password", key=f"pwd_edit_dialog_{index_dong}")
-    
-    if mat_khau_nhap != MAT_KHAU_QUAN_TRI:
-        if mat_khau_nhap != "":
-            st.error("❌ Mật khẩu không chính xác!")
-        return
-
-    st.success("✅ Xác thực thành công!")
-    st.markdown("---")
-
     ten_mon_cu = row_data["Tên món"]
     nhom_cu = row_data["Nhóm"]
     cong_thuc_cu = row_data["Công thức"]
@@ -190,25 +204,18 @@ def dialog_sua_mon(index_dong, row_data, danh_sach_nhom_hien_tai):
             except Exception as e:
                 st.error(f"Lỗi khi lưu cập nhật: {e}")
 
-# 5. Hàm Popup Xóa món (Có mật khẩu & Xác nhận)
+# 5. Hàm Popup Xóa món (Có xác nhận)
 @st.dialog("🗑️ Xác nhận xóa món", width="medium")
 def dialog_xoa_mon(index_dong, row_data):
     st.error(f"⚠️ Bạn đang chuẩn bị xóa món: **{row_data['Tên món']}**")
-    st.info("🔐 Nhập mật khẩu quản trị và bấm nút xác nhận bên dưới để hoàn tất.")
-    
-    mat_khau_nhap = st.text_input("Mật khẩu quản trị:", type="password", key=f"pwd_del_dialog_{index_dong}")
-    
     xac_nhan_checkbox = st.checkbox("Tôi chắc chắn muốn xóa vĩnh viễn món này", key=f"cb_del_{index_dong}")
 
     if st.button("🗑️ Đồng ý Xóa", type="primary", use_container_width=True, key=f"btn_confirm_del_{index_dong}"):
-        if mat_khau_nhap != MAT_KHAU_QUAN_TRI:
-            st.error("❌ Mật khẩu quản trị không chính xác!")
-        elif not xac_nhan_checkbox:
+        if not xac_nhan_checkbox:
             st.warning("⚠️ Vui lòng tích chọn xác nhận muốn xóa!")
         else:
             try:
                 df_goc = pd.read_excel(EXCEL_PATH)
-                # Xóa dòng theo chỉ số index gốc
                 df_goc = df_goc.drop(index_dong).reset_index(drop=True)
                 df_goc.to_excel(EXCEL_PATH, index=False)
                 
@@ -262,7 +269,6 @@ else:
             else:
                 st.info("🖼️ Chưa có ảnh")
         with c2:
-            # Chia cột tiêu đề, nút Sửa và nút Xóa nằm ngang gọn gàng
             col_tieu_de, col_sua, col_xoa = st.columns([3, 1, 1])
             with col_tieu_de:
                 st.subheader(row["Tên món"])
