@@ -4,11 +4,11 @@ import io
 import unicodedata
 import os
 
-st.set_page_config(page_title="MADAM13 - Quản Lý Công Thức", layout="wide")
-st.title("🍹 MADAM#13 | Tra Cứu Công Thức")
+st.set_page_config(page_title="MD13 | Quản Lý Công Thức", layout="wide")
+st.title("🍹 MADAM13 | Tra Cứu Công Thức")
 
-# Đường dẫn cố định tới thư mục và file Excel
-THU_MUC_GOC = r"D:\md13\Congthuc"
+# 📂 Tự động nhận diện thư mục chứa file app.py hiện tại (chạy được cả trên máy tính lẫn trên Web)
+THU_MUC_GOC = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(THU_MUC_GOC, "du_lieu.xlsx")
 
 # 🔐 Mật khẩu chung bảo vệ các chức năng Quản trị (Thêm, Sửa, Xóa)
@@ -36,7 +36,7 @@ def load_data():
         df["Nhóm"] = df["Nhóm"].astype(str).replace('nan', '')
         return df
     except Exception as e:
-        st.error(f"Lỗi khi đọc file Excel: {e}")
+        st.error(f"Lỗi khi đọc file Excel tại đường dẫn `{EXCEL_PATH}`: {e}")
         return pd.DataFrame({"Tên món": [], "Nhóm": [], "Công thức": [], "Tên file ảnh": []})
 
 df = load_data()
