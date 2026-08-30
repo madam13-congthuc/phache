@@ -4,8 +4,6 @@ import io
 import unicodedata
 import os
 
-st.set_page_config(page_title="Madam13 | Quản Lý Công Thức", layout="wide")
-
 # Đường dẫn thư mục và file Excel
 THU_MUC_GOC = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(THU_MUC_GOC, "du_lieu.xlsx")
@@ -224,14 +222,20 @@ def dialog_xoa_mon(index_dong, row_data):
             except Exception as e:
                 st.error(f"Lỗi khi xóa dữ liệu: {e}")
 
-# 6. Khu vực tìm kiếm, bộ lọc và nút Thêm món
-col1, col2, col3 = st.columns([2, 2, 1])
-with col1:
+# 6. Khu vực tùy chọn Bố cục, Tìm kiếm, Bộ lọc và Nút Thêm món
+col_bo_cuc, col_tim, col_nhom, col_them = st.columns([1.5, 2, 2, 1])
+
+with col_bo_cuc:
+    kieu_hien_thi = st.radio("📐 Kiểu hiển thị:", ["📄 Dạng danh sách", "🪟 Dạng lưới (2 cột)"], horizontal=True)
+
+with col_tim:
     tim_kiem = st.text_input("🔍 Nhập tên món để tìm kiếm nhanh:")
-with col2:
+
+with col_nhom:
     danh_sach_nhom = ["Tất cả"] + [n for n in df["Nhóm"].unique() if str(n).strip() != ""]
     nhom_chon = st.selectbox("📂 Lọc theo nhóm:", danh_sach_nhom)
-with col3:
+
+with col_them:
     st.write("") 
     st.write("") 
     if st.button("➕ Thêm món mới", use_container_width=True):
@@ -248,50 +252,86 @@ if tim_kiem:
 if nhom_chon != "Tất cả":
     df_loc = df_loc[df_loc["Nhóm"] == nhom_chon]
 
-# 8. Hiển thị kết quả kèm Checkbox ẩn/hiện nút Sửa/Xóa nhỏ gọn
+# Hàm render nội dung chi tiết của một món (dùng chung cho cả 2 kiểu hiển thị)
+def render_noi_dung_mon(idx, row):
+    # Checkbox nhỏ quản lý ẩn/hiện nút Sửa/Xóa
+    col_tieu_de, col_checkbox = st.columns([3, 1])
+    with col_tieu_de:
+        st.subheader(row["Tên món"])
+        st.caption(f"Nhóm: {row['Nhóm']}")
+    with col_checkbox:
+        hien_nut = st.checkbox("⚙️ Sửa/Xóa", key=f"toggle_btn_{idx}")
+    
+    # Nếu tick chọn thì hiện 2 nút Sửa/Xóa nhỏ gọn
+    if hien_nut:
+        col_nut1, col_nut2, col_trong = st.columns([1, 1, 3])
+        with col_nut1:
+            if st.button("✏️ Sửa", key=f"main_edit_btn_{idx}", use_container_width=True):
+                dialog_sua_mon(idx, row, danh_sach_nhom)
+        with col_nut2:
+            if st.button("🗑️ Xóa", key=f"main_del_btn_{idx}", use_container_width=True):
+                dialog_xoa_mon(idx, row)
+        st.markdown("")
+
+    img_name_raw = row.get("Tên file ảnh", "")
+    img_name = str(img_name_raw).strip() if not pd.isna(img_name_raw) else ""
+
+    if img_name and img_name.lower() != 'nan':
+        duong_dan_hien_thi = os.path.join(THU_MUC_GOC, img_name)
+        if os.path.exists(duong_dan_hien_thi):
+            st.image(duong_dan_hien_thi, use_container_width=True)
+        else:
+            st.error(f"🚫 Thiếu file: {img_name}")
+    else:
+        st.info("🖼️ Chưa có ảnh")
+
+    cong_thuc = str(row.get("Công thức", ""))
+    st.markdown(cong_thuc, unsafe_allow_html=True)
+
+# 8. Hiển thị kết quả theo kiểu bố cục đã chọn
 st.divider()
 if df_loc.empty:
     st.warning("⚠️ Không tìm thấy món nào phù hợp. Vui lòng thử từ khóa khác.")
 else:
-    for idx, row in df_loc.iterrows():
-        c1, c2 = st.columns([1, 3])
-        with c1:
-            img_name_raw = row.get("Tên file ảnh", "")
-            img_name = str(img_name_raw).strip() if not pd.isna(img_name_raw) else ""
-
-            if img_name and img_name.lower() != 'nan':
-                duong_dan_hien_thi = os.path.join(THU_MUC_GOC, img_name)
-                if os.path.exists(duong_dan_hien_thi):
-                    st.image(duong_dan_hien_thi, width=250)
+    if kieu_hien_thi == "📄 Dạng danh sách":
+        # HIỂN THỊ DẠNG DANH SÁCH DỌC TRUYỀN THỐNG
+        for idx, row in df_loc.iterrows():
+            c1, c2 = st.columns([1, 3])
+            with c1:
+                img_name_raw = row.get("Tên file ảnh", "")
+                img_name = str(img_name_raw).strip() if not pd.isna(img_name_raw) else ""
+                if img_name and img_name.lower() != 'nan':
+                    duong_dan_hien_thi = os.path.join(THU_MUC_GOC, img_name)
+                    if os.path.exists(duong_dan_hien_thi):
+                        st.image(duong_dan_hien_thi, width=250)
+                    else:
+                        st.error(f"🚫 Thiếu file: {img_name}")
                 else:
-                    st.error(f"🚫 Thiếu file: {img_name}")
-            else:
-                st.info("🖼️ Chưa có ảnh")
-        with c2:
-            # Bố trí tiêu đề món và một checkbox nhỏ "Quản lý" ở góc phải
-            col_tieu_de, col_checkbox = st.columns([4, 1])
-            with col_tieu_de:
-                st.subheader(row["Tên món"])
-                st.caption(f"Nhóm: {row['Nhóm']}")
-            with col_checkbox:
-                # Checkbox tick chọn để hiển thị các nút thao tác chỉnh sửa/xóa
-                hien_nut = st.checkbox("⚙️ Sửa/Xóa", key=f"toggle_btn_{idx}")
+                    st.info("🖼️ Chưa có ảnh")
+            with c2:
+                render_noi_dung_mon(idx, row)
+            st.divider()
             
-            # Nếu người dùng tích chọn checkbox, hiển thị các nút nhỏ gọn ngay bên dưới tiêu đề
-            if hien_nut:
-                col_nut1, col_nut2, col_trong = st.columns([1, 1, 4])
-                with col_nut1:
-                    if st.button("✏️ Sửa", key=f"main_edit_btn_{idx}", use_container_width=True):
-                        dialog_sua_mon(idx, row, danh_sach_nhom)
-                with col_nut2:
-                    if st.button("🗑️ Xóa", key=f"main_del_btn_{idx}", use_container_width=True):
-                        dialog_xoa_mon(idx, row)
-                st.markdown("") # Khoảng cách nhỏ
-
-            cong_thuc = str(row.get("Công thức", ""))
-            st.markdown(cong_thuc, unsafe_allow_html=True)
+    else:
+        # HIỂN THỊ DẠNG LƯỚI (CHIA ĐÔI - 2 CỘT TRÊN 1 DÒNG)
+        danh_sach_items = list(df_loc.iterrows())
+        for i in range(0, len(danh_sach_items), 2):
+            cols = st.columns(2, gap="large")
             
-        st.divider()
+            # Cột bên trái
+            with cols[0]:
+                idx_1, row_1 = danh_sach_items[i]
+                with st.container(border=True):
+                    render_noi_dung_mon(idx_1, row_1)
+            
+            # Cột bên phải (nếu có phần tử thứ 2 trong hàng)
+            if i + 1 < len(danh_sach_items):
+                with cols[1]:
+                    idx_2, row_2 = danh_sach_items[i + 1]
+                    with st.container(border=True):
+                        render_noi_dung_mon(idx_2, row_2)
+            
+            st.markdown("")
 
 # 9. Chức năng xuất file
 st.subheader("📥 Xuất và In ấn")
