@@ -4,14 +4,13 @@ import io
 import unicodedata
 import os
 
-st.set_page_config(page_title="MD13 | Quản Lý Công Thức", layout="wide")
+st.set_page_config(page_title="Madam13 | Quản Lý Công Thức", layout="wide")
 
 # Đường dẫn thư mục và file Excel
 THU_MUC_GOC = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(THU_MUC_GOC, "du_lieu.xlsx")
 
 # 🔐 Cấu hình Tài khoản và Mật khẩu tổng để truy cập trang web
-# Bạn có thể thay đổi tùy ý tên đăng nhập và mật khẩu ở đây
 USER_DANG_NHAP = "admin"
 MAT_KHAU_DANG_NHAP = "050212"
 
@@ -37,13 +36,13 @@ if not st.session_state.da_dang_nhap:
             else:
                 st.error("❌ Tên đăng nhập hoặc mật khẩu không chính xác!")
                 
-    st.stop( )  # Dừng lại ở đây, không cho hiển thị phần code bên dưới nếu chưa đăng nhập
+    st.stop()
 
 
 # ----------------- GIAO DIỆN CHÍNH CỦA ỨNG DỤNG (SAU KHI ĐÃ ĐĂNG NHẬP) -----------------
-st.title("🍹 MADAM13 | Công Thức Pha Chế")
+st.title("🍹 MADAM#13 | Tra Cứu Công Thức")
 
-# Nút đăng xuất ở góc trên thanh Sidebar hoặc màn hình chính
+# Nút đăng xuất ở thanh Sidebar
 with st.sidebar:
     st.write(f"👤 Đang đăng nhập: **{USER_DANG_NHAP}**")
     if st.button("🚪 Đăng xuất", use_container_width=True):
@@ -249,7 +248,7 @@ if tim_kiem:
 if nhom_chon != "Tất cả":
     df_loc = df_loc[df_loc["Nhóm"] == nhom_chon]
 
-# 8. Hiển thị kết quả kèm nút Chỉnh sửa và Xóa
+# 8. Hiển thị kết quả kèm Checkbox ẩn/hiện nút Sửa/Xóa nhỏ gọn
 st.divider()
 if df_loc.empty:
     st.warning("⚠️ Không tìm thấy món nào phù hợp. Vui lòng thử từ khóa khác.")
@@ -269,17 +268,26 @@ else:
             else:
                 st.info("🖼️ Chưa có ảnh")
         with c2:
-            col_tieu_de, col_sua, col_xoa = st.columns([3, 1, 1])
+            # Bố trí tiêu đề món và một checkbox nhỏ "Quản lý" ở góc phải
+            col_tieu_de, col_checkbox = st.columns([4, 1])
             with col_tieu_de:
                 st.subheader(row["Tên món"])
                 st.caption(f"Nhóm: {row['Nhóm']}")
-            with col_sua:
-                if st.button("✏️ Sửa", key=f"main_edit_btn_{idx}", use_container_width=True):
-                    dialog_sua_mon(idx, row, danh_sach_nhom)
-            with col_xoa:
-                if st.button("🗑️ Xóa", key=f"main_del_btn_{idx}", use_container_width=True):
-                    dialog_xoa_mon(idx, row)
+            with col_checkbox:
+                # Checkbox tick chọn để hiển thị các nút thao tác chỉnh sửa/xóa
+                hien_nut = st.checkbox("⚙️ Sửa/Xóa", key=f"toggle_btn_{idx}")
             
+            # Nếu người dùng tích chọn checkbox, hiển thị các nút nhỏ gọn ngay bên dưới tiêu đề
+            if hien_nut:
+                col_nut1, col_nut2, col_trong = st.columns([1, 1, 4])
+                with col_nut1:
+                    if st.button("✏️ Sửa", key=f"main_edit_btn_{idx}", use_container_width=True):
+                        dialog_sua_mon(idx, row, danh_sach_nhom)
+                with col_nut2:
+                    if st.button("🗑️ Xóa", key=f"main_del_btn_{idx}", use_container_width=True):
+                        dialog_xoa_mon(idx, row)
+                st.markdown("") # Khoảng cách nhỏ
+
             cong_thuc = str(row.get("Công thức", ""))
             st.markdown(cong_thuc, unsafe_allow_html=True)
             
