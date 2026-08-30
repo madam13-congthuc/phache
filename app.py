@@ -13,7 +13,7 @@ EXCEL_PATH = os.path.join(THU_MUC_GOC, "du_lieu.xlsx")
 # 🔐 Cấu hình Tài khoản và Mật khẩu tổng để truy cập trang web
 # Bạn có thể thay đổi tùy ý tên đăng nhập và mật khẩu ở đây
 USER_DANG_NHAP = "admin"
-MAT_KHAU_DANG_NHAP = "123456"
+MAT_KHAU_DANG_NHAP = "050212"
 
 # Quản lý trạng thái đăng nhập trong session_state
 if "da_dang_nhap" not in st.session_state:
