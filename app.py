@@ -149,8 +149,8 @@ if st.session_state.get("mo_dialog_them", False):
 # LUỒNG 1: MÀN HÌNH CHỌN NHÓM (TRANG CHỦ)
 # =========================================================================
 if st.session_state.man_hinh == "chon_nhom":
-    st.title("🍹 HỆ THỐNG PHA CHẾ - CHỌN NHÓM MÓN")
-    st.markdown("### Vui lòng chọn một nhóm thức uống để tiếp tục:")
+    st.title("🍹 MADAM13 | HỆ THỐNG CÔNG THỨC")
+    st.markdown("### Danh sách nhóm món:")
     
     danh_sach_nhom = [n for n in df["Nhóm"].unique() if str(n).strip() != ""]
     
