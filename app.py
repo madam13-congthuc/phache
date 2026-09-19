@@ -4,7 +4,7 @@ import io
 import unicodedata
 import os
 
-st.set_page_config(page_title="Quản Lý Công Thức", layout="wide")
+st.set_page_config(page_title="Hệ Thống Tra Cứu Công Thức - Bar", layout="wide")
 
 # Đường dẫn thư mục và file Excel
 THU_MUC_GOC = os.path.dirname(os.path.abspath(__file__))
@@ -12,16 +12,26 @@ EXCEL_PATH = os.path.join(THU_MUC_GOC, "du_lieu.xlsx")
 
 # 🔐 Cấu hình Tài khoản và Mật khẩu tổng để truy cập trang web
 USER_DANG_NHAP = "admin"
-MAT_KHAU_DANG_NHAP = "050212"
+MAT_KHAU_DANG_NHAP = "123456"
 
 # Quản lý trạng thái đăng nhập trong session_state
 if "da_dang_nhap" not in st.session_state:
     st.session_state.da_dang_nhap = False
 
-# ----------------- GIAO DIỆN ĐĂNG NHẬP (NẾU CHƯA ĐĂNG NHẬP) -----------------
+# Quản lý luồng màn hình cảm ứng
+if "man_hinh" not in st.session_state:
+    st.session_state.man_hinh = "chon_nhom" # chon_nhom, chon_mon, che_do_pha_che
+if "nhom_dang_chon" not in st.session_state:
+    st.session_state.nhom_dang_chon = None
+if "danh_sach_chon" not in st.session_state:
+    st.session_state.danh_sach_chon = [] # Lưu các món được chọn pha chế
+if "mon_dang_xem" not in st.session_state:
+    st.session_state.mon_dang_xem = None
+
+# ----------------- GIAO DIỆN ĐĂNG NHẬP -----------------
 if not st.session_state.da_dang_nhap:
-    st.title("🔒 Đăng Nhập Hệ Thống")
-    st.markdown("Vui lòng nhập thông tin tài khoản để truy cập vào ứng dụng quản lý công thức.")
+    st.title("🔒 Đăng Nhập Hệ Thống Pha Chế")
+    st.markdown("Vui lòng nhập thông tin tài khoản để truy cập.")
     
     with st.form("form_dang_nhap"):
         input_user = st.text_input("Tên đăng nhập:")
@@ -31,34 +41,13 @@ if not st.session_state.da_dang_nhap:
         if submit_btn:
             if input_user == USER_DANG_NHAP and input_pass == MAT_KHAU_DANG_NHAP:
                 st.session_state.da_dang_nhap = True
-                st.success("🎉 Đăng nhập thành công! Đang tải ứng dụng...")
+                st.success("🎉 Đăng nhập thành công!")
                 st.rerun()
             else:
-                st.error("❌ Tên đăng nhập hoặc mật khẩu không chính xác!")
-                
+                st.error("❌ Sai tên đăng nhập hoặc mật khẩu!")
     st.stop()
 
-
-# ----------------- GIAO DIỆN CHÍNH CỦA ỨNG DỤNG (SAU KHI ĐÃ ĐĂNG NHẬP) -----------------
-st.title("🍹 MADAM#13 | Tra Cứu Công Thức")
-
-# Nút đăng xuất ở thanh Sidebar
-with st.sidebar:
-    st.write(f"👤 Đang đăng nhập: **{USER_DANG_NHAP}**")
-    if st.button("🚪 Đăng xuất", use_container_width=True):
-        st.session_state.da_dang_nhap = False
-        st.rerun()
-
-# 1. Hàm chuẩn hóa tiếng Việt
-def xu_ly_chu(text):
-    if pd.isna(text) or text is None:
-        return ""
-    text = str(text).strip().lower()
-    text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode("utf-8")
-    text = text.replace('đ', 'd')
-    return text
-
-# 2. Hàm tải dữ liệu an toàn
+# ----------------- HÀM TẢI DỮ LIỆU & XỬ LÝ -----------------
 @st.cache_data
 def load_data():
     try:
@@ -71,240 +60,238 @@ def load_data():
         df["Nhóm"] = df["Nhóm"].astype(str).replace('nan', '')
         return df
     except Exception as e:
-        st.error(f"Lỗi khi đọc file Excel tại đường dẫn `{EXCEL_PATH}`: {e}")
+        st.error(f"Lỗi khi đọc file Excel: {e}")
         return pd.DataFrame({"Tên món": [], "Nhóm": [], "Công thức": [], "Tên file ảnh": []})
 
 df = load_data()
 
-# 3. Hàm Popup Thêm món mới
+# ----------------- THANH ĐIỀU HƯỚNG & QUẢN TRỊ (SIDEBAR) -----------------
+with st.sidebar:
+    st.write(f"👤 Đang đăng nhập: **{USER_DANG_NHAP}**")
+    if st.button("🏠 Về trang chủ (Chọn nhóm)", use_container_width=True):
+        st.session_state.man_hinh = "chon_nhom"
+        st.session_state.nhom_dang_chon = None
+        st.rerun()
+        
+    if st.session_state.danh_sach_chon:
+        if st.button(f"📋 Xem danh sách đang chọn ({len(st.session_state.danh_sach_chon)})", use_container_width=True, type="primary"):
+            st.session_state.man_hinh = "che_do_pha_che"
+            st.session_state.mon_dang_xem = st.session_state.danh_sach_chon[0]
+            st.rerun()
+
+    st.divider()
+    st.markdown("### ⚙️ Quản trị hệ thống")
+    if st.button("➕ Thêm món mới", use_container_width=True):
+        st.session_state.mo_dialog_them = True
+    
+    st.divider()
+    if st.button("🚪 Đăng xuất", use_container_width=True):
+        st.session_state.da_dang_nhap = False
+        st.rerun()
+
+# ----------------- POPUP THÊM MÓN MỚI -----------------
 @st.dialog("➕ Thêm công thức món mới", width="large")
-def dialog_them_mon(danh_sach_nhom_hien_tai):
-    ten_mon = st.text_input("Tên món:", key="add_ten_mon")
+def dialog_them_mon():
+    danh_sach_nhom_hien_tai = [n for n in df["Nhóm"].unique() if str(n).strip() != ""]
+    ten_mon = st.text_input("Tên món:")
     
     nhom_chon_lua = ["Chọn nhóm có sẵn", "➕ Tạo nhóm mới..."]
-    lua_chon_nhom = st.radio("Phân loại nhóm:", nhom_chon_lua, horizontal=True, key="add_radio_nhom")
+    lua_chon_nhom = st.radio("Phân loại nhóm:", nhom_chon_lua, horizontal=True)
     
     if lua_chon_nhom == "Chọn nhóm có sẵn":
-        danh_sach_hop_le = [n for n in danh_sach_nhom_hien_tai if n != "Tất cả"]
-        nhom = st.selectbox("Chọn nhóm:", danh_sach_hop_le, key="add_select_nhom")
+        nhom = st.selectbox("Chọn nhóm:", danh_sach_nhom_hien_tai if danh_sach_nhom_hien_tai else ["Chung"])
     else:
-        nhom = st.text_input("Nhập tên nhóm mới vào đây:", key="add_input_nhom_moi")
+        nhom = st.text_input("Nhập tên nhóm mới:")
         
     st.markdown("---")
+    cong_thuc = st.text_area("Nội dung công thức chi tiết (Hỗ trợ Markdown):", height=180)
+    file_anh = st.file_uploader("Chọn hình ảnh minh họa:", type=["jpg", "jpeg", "png"])
     
-    if "input_cong_thuc" not in st.session_state:
-        st.session_state.input_cong_thuc = ""
-
-    cong_thuc = st.text_area(
-        "Nội dung công thức chi tiết (Hỗ trợ định dạng Markdown):", 
-        value=st.session_state.input_cong_thuc,
-        height=180,
-        key="add_text_area_ct"
-    )
-    st.session_state.input_cong_thuc = cong_thuc
-
-    file_anh = st.file_uploader("Chọn hình ảnh minh họa từ máy:", type=["jpg", "jpeg", "png"], key="add_file_up")
-    
-    if st.button("💾 Lưu món mới", type="primary", use_container_width=True, key="add_btn_save"):
+    if st.button("💾 Lưu món mới", type="primary", use_container_width=True):
         nhom_final = nhom.strip() if lua_chon_nhom == "➕ Tạo nhóm mới..." else nhom
         if not ten_mon.strip():
-            st.warning("⚠️ Vui lòng nhập tên món trước khi lưu!")
-        elif not nhom_final:
-            st.warning("⚠️ Vui lòng chọn hoặc nhập tên nhóm!")
+            st.warning("⚠️ Vui lòng nhập tên món!")
         else:
             ten_file_anh = ""
             if file_anh is not None:
                 ten_file_anh = file_anh.name
-                duong_dan_luu_anh = os.path.join(THU_MUC_GOC, ten_file_anh)
-                with open(duong_dan_luu_anh, "wb") as f:
+                duong_dan_luu = os.path.join(THU_MUC_GOC, ten_file_anh)
+                with open(duong_dan_luu, "wb") as f:
                     f.write(file_anh.getbuffer())
             
             try:
-                df_hien_tai = pd.read_excel(EXCEL_PATH)
+                df_goc = pd.read_excel(EXCEL_PATH)
             except:
-                df_hien_tai = pd.DataFrame(columns=["Tên món", "Nhóm", "Công thức", "Tên file ảnh"])
+                df_goc = pd.DataFrame(columns=["Tên món", "Nhóm", "Công thức", "Tên file ảnh"])
             
-            dong_moi = pd.DataFrame([{
-                "Tên món": ten_mon.strip(),
-                "Nhóm": nhom_final.strip(),
-                "Công thức": cong_thuc,
-                "Tên file ảnh": ten_file_anh
-            }])
-            
-            df_moi = pd.concat([df_hien_tai, dong_moi], ignore_index=True)
+            dong_moi = pd.DataFrame([{"Tên món": ten_mon.strip(), "Nhóm": nhom_final.strip(), "Công thức": cong_thuc, "Tên file ảnh": ten_file_anh}])
+            df_moi = pd.concat([df_goc, dong_moi], ignore_index=True)
             df_moi.to_excel(EXCEL_PATH, index=False)
             
-            st.session_state.input_cong_thuc = ""
             st.success("🎉 Đã thêm món mới thành công!")
-            st.balloons()
-            
             st.cache_data.clear()
             st.rerun()
 
-# 4. Hàm Popup Chỉnh sửa món
-@st.dialog("✏️ Chỉnh sửa thông tin món", width="large")
-def dialog_sua_mon(index_dong, row_data, danh_sach_nhom_hien_tai):
-    ten_mon_cu = row_data["Tên món"]
-    nhom_cu = row_data["Nhóm"]
-    cong_thuc_cu = row_data["Công thức"]
-    anh_cu = row_data["Tên file ảnh"]
+if st.session_state.get("mo_dialog_them", False):
+    st.session_state.mo_dialog_them = False
+    dialog_them_mon()
 
-    ten_mon_moi = st.text_input("Tên món:", value=str(ten_mon_cu), key=f"edit_ten_{index_dong}")
+
+# =========================================================================
+# LUỒNG 1: MÀN HÌNH CHỌN NHÓM (TRANG CHỦ)
+# =========================================================================
+if st.session_state.man_hinh == "chon_nhom":
+    st.title("🍹 HỆ THỐNG PHA CHẾ - CHỌN NHÓM MÓN")
+    st.markdown("### Vui lòng chọn một nhóm thức uống để tiếp tục:")
     
-    danh_sach_hop_le = [n for n in danh_sach_nhom_hien_tai if n != "Tất cả"]
-    try:
-        vi_tri_nhom_cu = danh_sach_hop_le.index(nhom_cu) if nhom_cu in danh_sach_hop_le else 0
-    except:
-        vi_tri_nhom_cu = 0
-        
-    nhom_chon_lua = ["Chọn nhóm có sẵn", "➕ Tạo nhóm mới..."]
-    lua_chon_nhom = st.radio("Phân loại nhóm:", nhom_chon_lua, horizontal=True, key=f"edit_radio_{index_dong}")
+    danh_sach_nhom = [n for n in df["Nhóm"].unique() if str(n).strip() != ""]
     
-    if lua_chon_nhom == "Chọn nhóm có sẵn":
-        nhom_moi = st.selectbox("Chọn nhóm:", danh_sach_hop_le, index=vi_tri_nhom_cu, key=f"edit_select_{index_dong}")
+    if not danh_sach_nhom:
+        st.warning("⚠️ Chưa có nhóm món nào trong hệ thống. Vui lòng bấm 'Thêm món mới' ở menu bên trái.")
     else:
-        nhom_moi = st.text_input("Nhập tên nhóm mới vào đây:", key=f"edit_input_nhom_{index_dong}")
-        
+        # Hiển thị các nhóm dạng các nút bấm lớn, tối ưu màn hình cảm ứng
+        cols = st.columns(3, gap="medium")
+        for i, nhom in enumerate(danh_sach_nhom):
+            with cols[i % 3]:
+                # Đếm số lượng món trong nhóm
+                so_luong_mon = len(df[df["Nhóm"] == nhom])
+                if st.button(f"📁 {nhom}\n\n({so_luong_mon} món)", use_container_width=True, key=f"btn_nhom_{i}HP"):
+                    st.session_state.nhom_dang_chon = nhom
+                    st.session_state.man_hinh = "chon_mon"
+                    st.rerun()
+
+
+# =========================================================================
+# LUỒNG 2: MÀN HÌNH CHỌN MÓN TRONG NHÓM & TẠO DANH SÁCH PHA CHẾ
+# =========================================================================
+elif st.session_state.man_hinh == "chon_mon":
+    nhom_hien_tai = st.session_state.nhom_dang_chon
+    st.title(f"📂 Nhóm: {nhom_hien_tai}")
+    
+    col_back, col_title_action = st.columns([1, 4])
+    with col_back:
+        if st.button("⬅️ Quay lại chọn nhóm", use_container_width=True):
+            st.session_state.man_hinh = "chon_nhom"
+            st.session_state.nhom_dang_chon = None
+            st.rerun()
+            
     st.markdown("---")
-    st.markdown(f"🖼️ **Ảnh hiện tại:** `{anh_cu if pd.notna(anh_cu) and str(anh_cu).strip() != '' else 'Không có'}`")
-    file_anh_moi = st.file_uploader("Chọn ảnh mới (nếu muốn thay thế ảnh cũ):", type=["jpg", "jpeg", "png"], key=f"edit_file_{index_dong}")
+    st.markdown("💡 **Chạm/Click chọn các món cần pha chế**, sau đó bấm nút **'Bắt đầu pha chế'** ở bên dưới:")
 
-    cong_thuc_moi = st.text_area(
-        "Nội dung công thức chi tiết:", 
-        value=str(cong_thuc_cu) if pd.notna(cong_thuc_cu) else "",
-        height=200,
-        key=f"edit_ta_{index_dong}"
-    )
-
-    if st.button("💾 Cập nhật thay đổi", type="primary", use_container_width=True, key=f"edit_btn_save_{index_dong}"):
-        nhom_final = nhom_moi.strip() if lua_chon_nhom == "➕ Tạo nhóm mới..." else nhom_moi
-        if not ten_mon_moi.strip():
-            st.warning("⚠️ Tên món không được để trống!")
-        else:
-            ten_file_anh_final = anh_cu
-            if file_anh_moi is not None:
-                ten_file_anh_final = file_anh_moi.name
-                duong_dan_luu_anh = os.path.join(THU_MUC_GOC, ten_file_anh_final)
-                with open(duong_dan_luu_anh, "wb") as f:
-                    f.write(file_anh_moi.getbuffer())
-
-            try:
-                df_goc = pd.read_excel(EXCEL_PATH)
-                df_goc.loc[index_dong, "Tên món"] = ten_mon_moi.strip()
-                df_goc.loc[index_dong, "Nhóm"] = nhom_final.strip()
-                df_goc.loc[index_dong, "Công thức"] = cong_thuc_moi
-                df_goc.loc[index_dong, "Tên file ảnh"] = ten_file_anh_final
-                
-                df_goc.to_excel(EXCEL_PATH, index=False)
-                
-                st.success("✨ Cập nhật món thành công!")
-                st.cache_data.clear()
+    df_nhom = df[df["Nhóm"] == nhom_hien_tai]
+    
+    # Hiển thị danh sách món trong nhóm kèm checkbox chọn nhiều món
+    danh_sach_tam = st.session_state.danh_sach_chon
+    
+    for idx, row in df_nhom.iterrows():
+        ten_mon = row["Tên món"]
+        da_chon = ten_mon in danh_sach_tam
+        
+        c_check, c_name, c_btn = st.columns([0.5, 4, 1.5])
+        with c_check:
+            # Checkbox trạng thái chọn món
+            is_checked = st.checkbox("Chọn", value=da_chon, key=f"chk_mon_{idx}", label_visibility="collapsed")
+            if is_checked and ten_mon not in danh_sach_tam:
+                st.session_state.danh_sach_chon.append(ten_mon)
+            elif not is_checked and ten_mon in danh_sach_tam:
+                st.session_state.danh_sach_chon.remove(ten_mon)
+        with c_name:
+            st.markdown(f"#### {ten_mon}")
+        with c_btn:
+            if st.button("🔍 Xem nhanh", key=f"xem_nhanh_{idx}", use_container_width=True):
+                # Xem chi tiết popup công thức nhanh
+                st.session_state.mon_xem_nhanh = row
                 st.rerun()
-            except Exception as e:
-                st.error(f"Lỗi khi lưu cập nhật: {e}")
-
-# 5. Hàm Popup Xóa món (Có xác nhận)
-@st.dialog("🗑️ Xác nhận xóa món", width="medium")
-def dialog_xoa_mon(index_dong, row_data):
-    st.error(f"⚠️ Bạn đang chuẩn bị xóa món: **{row_data['Tên món']}**")
-    xac_nhan_checkbox = st.checkbox("Tôi chắc chắn muốn xóa vĩnh viễn món này", key=f"cb_del_{index_dong}")
-
-    if st.button("🗑️ Đồng ý Xóa", type="primary", use_container_width=True, key=f"btn_confirm_del_{index_dong}"):
-        if not xac_nhan_checkbox:
-            st.warning("⚠️ Vui lòng tích chọn xác nhận muốn xóa!")
-        else:
-            try:
-                df_goc = pd.read_excel(EXCEL_PATH)
-                df_goc = df_goc.drop(index_dong).reset_index(drop=True)
-                df_goc.to_excel(EXCEL_PATH, index=False)
-                
-                st.success("🗑️ Đã xóa món thành công khỏi hệ thống!")
-                st.cache_data.clear()
-                st.rerun()
-            except Exception as e:
-                st.error(f"Lỗi khi xóa dữ liệu: {e}")
-
-# 6. Khu vực tìm kiếm, bộ lọc và nút Thêm món
-col1, col2, col3 = st.columns([2, 2, 1])
-with col1:
-    tim_kiem = st.text_input("🔍 Nhập tên món để tìm kiếm nhanh:")
-with col2:
-    danh_sach_nhom = ["Tất cả"] + [n for n in df["Nhóm"].unique() if str(n).strip() != ""]
-    nhom_chon = st.selectbox("📂 Lọc theo nhóm:", danh_sach_nhom)
-with col3:
-    st.write("") 
-    st.write("") 
-    if st.button("➕ Thêm món mới", use_container_width=True):
-        dialog_them_mon(danh_sach_nhom)
-
-# 7. Lọc dữ liệu thông minh
-df_loc = df.copy()
-
-if tim_kiem:
-    tu_khoa = xu_ly_chu(tim_kiem)
-    df_loc['Ten_mon_chuan'] = df_loc['Tên món'].apply(xu_ly_chu)
-    df_loc = df_loc[df_loc['Ten_mon_chuan'].astype(str).str.contains(tu_khoa, case=False, na=False)]
-
-if nhom_chon != "Tất cả":
-    df_loc = df_loc[df_loc["Nhóm"] == nhom_chon]
-
-# 8. Hiển thị kết quả kèm Checkbox ẩn/hiện nút Sửa/Xóa nhỏ gọn
-st.divider()
-if df_loc.empty:
-    st.warning("⚠️ Không tìm thấy món nào phù hợp. Vui lòng thử từ khóa khác.")
-else:
-    for idx, row in df_loc.iterrows():
-        c1, c2 = st.columns([1, 3])
-        with c1:
-            img_name_raw = row.get("Tên file ảnh", "")
-            img_name = str(img_name_raw).strip() if not pd.isna(img_name_raw) else ""
-
-            if img_name and img_name.lower() != 'nan':
-                duong_dan_hien_thi = os.path.join(THU_MUC_GOC, img_name)
-                if os.path.exists(duong_dan_hien_thi):
-                    st.image(duong_dan_hien_thi, width=250)
-                else:
-                    st.error(f"🚫 Thiếu file: {img_name}")
-            else:
-                st.info("🖼️ Chưa có ảnh")
-        with c2:
-            # Bố trí tiêu đề món và một checkbox nhỏ "Quản lý" ở góc phải
-            col_tieu_de, col_checkbox = st.columns([4, 1])
-            with col_tieu_de:
-                st.subheader(row["Tên món"])
-                st.caption(f"Nhóm: {row['Nhóm']}")
-            with col_checkbox:
-                # Checkbox tick chọn để hiển thị các nút thao tác chỉnh sửa/xóa
-                hien_nut = st.checkbox("⚙️ Sửa/Xóa", key=f"toggle_btn_{idx}")
-            
-            # Nếu người dùng tích chọn checkbox, hiển thị các nút nhỏ gọn ngay bên dưới tiêu đề
-            if hien_nut:
-                col_nut1, col_nut2, col_trong = st.columns([1, 1, 4])
-                with col_nut1:
-                    if st.button("✏️ Sửa", key=f"main_edit_btn_{idx}", use_container_width=True):
-                        dialog_sua_mon(idx, row, danh_sach_nhom)
-                with col_nut2:
-                    if st.button("🗑️ Xóa", key=f"main_del_btn_{idx}", use_container_width=True):
-                        dialog_xoa_mon(idx, row)
-                st.markdown("") # Khoảng cách nhỏ
-
-            cong_thuc = str(row.get("Công thức", ""))
-            st.markdown(cong_thuc, unsafe_allow_html=True)
-            
         st.divider()
 
-# 9. Chức năng xuất file
-st.subheader("📥 Xuất và In ấn")
-st.write("Nhấn `Ctrl + P` trên trình duyệt để in hoặc lưu thành PDF. Tải file Excel danh sách hiện tại bên dưới:")
+    # Nút chuyển sang màn hình pha chế chính thức
+    if st.session_state.danh_sach_chon:
+        st.markdown("")
+        if st.button(f"🚀 BẮT ĐẦU PHA CHẾ ({len(st.session_state.danh_sach_chon)} món đã chọn)", type="primary", use_container_width=True):
+            st.session_state.man_hinh = "che_do_pha_che"
+            st.session_state.mon_dang_xem = st.session_state.danh_sach_chon[0]
+            st.rerun()
 
-buffer = io.BytesIO()
-df_xuat = df_loc[["Tên món", "Nhóm", "Công thức", "Tên file ảnh"]]
-with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-    df_xuat.to_excel(writer, index=False)
+    # Modal xem nhanh công thức đơn lẻ
+    if "mon_xem_nhanh" in st.session_state:
+        r = st.session_state.mon_xem_nhanh
+        @st.dialog(f"📖 Công thức: {r['Tên món']}", width="large")
+        def dialog_xem_nhanh():
+            img = str(r.get("Tên file ảnh", "")).strip()
+            if img and img.lower() != 'nan':
+                path_img = os.path.join(THU_MUC_GOC, img)
+                if os.path.exists(path_img):
+                    st.image(path_img, width=300)
+            st.markdown(str(r.get("Công thức", "")))
+            if st.button("Đóng", use_container_width=True):
+                del st.session_state.mon_xem_nhanh
+                st.rerun()
+        dialog_xem_nhanh()
+
+
+# =========================================================================
+# LUỒNG 3: MÀN HÌNH CHUYÊN DỤNG PHA CHẾ (CỘT TRÁI: DANH SÁCH ĐÃ CHỌN - CỘT PHẢI: CHI TIẾT)
+# =========================================================================
+elif st.session_state.man_hinh == "che_do_pha_che":
+    st.title("☕ MÀN HÌNH PHA CHẾ TRỰC QUAN")
     
-st.download_button(
-    label="Tải danh sách ra Excel",
-    data=buffer,
-    file_name="ket_qua_tim_kiem.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    danh_sach_chon = st.session_state.danh_sach_chon
+    
+    if not danh_sach_chon:
+        st.warning("⚠️ Bạn chưa chọn món nào. Vui lòng quay lại chọn nhóm và chọn món.")
+        if st.button("⬅️ Quay về chọn nhóm"):
+            st.session_state.man_hinh = "chon_nhom"
+            st.rerun()
+    else:
+        # Chia bố cục 2 cột: Cột trái (Danh sách món đã chọn), Cột phải (Chi tiết công thức)
+        col_trai, col_phai = st.columns([1.2, 2.8], gap="large")
+        
+        with col_trai:
+            st.markdown("### 📋 Danh sách món")
+            st.markdown("*(Chạm vào tên món để xem chi tiết)*")
+            st.divider()
+            
+            for mon in danh_sach_chon:
+                # Kiểm tra nếu là món đang xem thì làm nổi bật nút
+                is_active = (st.session_state.mon_dang_xem == mon)
+                btn_type = "primary" if is_active else "secondary"
+                
+                if st.button(f"🍹 {mon}", key=f"btn_lua_chon_{mon}", use_container_width=True, type=btn_type):
+                    st.session_state.mon_dang_xem = mon
+                    st.rerun()
+            
+            st.divider()
+            if st.button("➕ Chọn thêm món khác", use_container_width=True):
+                st.session_state.man_hinh = "chon_nhom"
+                st.rerun()
+                
+            if st.button("🗑️ Xóa sạch danh sách", use_container_width=True):
+                st.session_state.danh_sach_chon = []
+                st.session_state.man_hinh = "chon_nhom"
+                st.rerun()
+
+        with col_phai:
+            mon_hien_tai = st.session_state.get("mon_dang_xem", danh_sach_chon[0])
+            
+            # Lấy thông tin chi tiết của món hiện tại từ DataFrame
+            row_info = df[df["Tên món"] == mon_hien_tai]
+            
+            if not row_info.empty:
+                r = row_info.iloc[0]
+                st.markdown(f"## ✨ {mon_hien_tai}")
+                st.caption(f"Nhóm: {r['Nhóm']}")
+                st.divider()
+                
+                # Hiển thị ảnh nếu có
+                img_name_raw = r.get("Tên file ảnh", "")
+                img_name = str(img_name_raw).strip() if not pd.isna(img_name_raw) else ""
+                if img_name and img_name.lower() != 'nan':
+                    duong_dan_hien_thi = os.path.join(THU_MUC_GOC, img_name)
+                    if os.path.exists(duong_dan_hien_thi):
+                        st.image(duong_dan_hien_thi, width=350)
+                
+                # Hiển thị nội dung công thức
+                cong_thuc_ct = str(r.get("Công thức", ""))
+                st.markdown(cong_thuc_ct, unsafe_allow_html=True)
+            else:
+                st.warning("Không tìm thấy thông tin chi tiết của món này.")
