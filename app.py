@@ -1,18 +1,16 @@
 import streamlit as st
 import pandas as pd
-import io
-import unicodedata
 import os
 
-st.set_page_config(page_title="Hệ Thống Tra Cứu Công Thức - Bar", layout="wide")
+st.set_page_config(page_title="MADAM13 | Hệ Thống Tra Cứu Công Thức Pha Chế", layout="wide")
 
 # Đường dẫn thư mục và file Excel
 THU_MUC_GOC = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(THU_MUC_GOC, "du_lieu.xlsx")
 
 # 🔐 Cấu hình Tài khoản và Mật khẩu tổng để truy cập trang web
-USER_DANG_NHAP = "admin"
-MAT_KHAU_DANG_NHAP = "123456"
+USER_DANG_NHAP = "v13"
+MAT_KHAU_DANG_NHAP = "050212"
 
 # Quản lý trạng thái đăng nhập trong session_state
 if "da_dang_nhap" not in st.session_state:
@@ -65,29 +63,39 @@ def load_data():
 
 df = load_data()
 
-# ----------------- THANH ĐIỀU HƯỚNG & QUẢN TRỊ (SIDEBAR) -----------------
-with st.sidebar:
-    st.write(f"👤 Đang đăng nhập: **{USER_DANG_NHAP}**")
-    if st.button("🏠 Về trang chủ (Chọn nhóm)", use_container_width=True):
+# ----------------- THANH ĐIỀU HƯỚNG & QUẢN TRỊ TRÊN CÙNG (TOP HEADER) -----------------
+c_user, c_home, c_list, c_add, c_out = st.columns([1.5, 1.2, 1.5, 1.2, 1])
+
+with c_user:
+    st.markdown(f"👤 **{USER_DANG_NHAP}**")
+
+with c_home:
+    if st.button("🏠 Chọn nhóm", use_container_width=True):
         st.session_state.man_hinh = "chon_nhom"
         st.session_state.nhom_dang_chon = None
         st.rerun()
-        
-    if st.session_state.danh_sach_chon:
-        if st.button(f"📋 Xem danh sách đang chọn ({len(st.session_state.danh_sach_chon)})", use_container_width=True, type="primary"):
+
+with c_list:
+    so_luong_dang_chon = len(st.session_state.danh_sach_chon)
+    btn_list_type = "primary" if so_luong_dang_chon > 0 else "secondary"
+    if st.button(f"📋 Đã chọn ({so_luong_dang_chon})", use_container_width=True, type=btn_list_type):
+        if so_luong_dang_chon > 0:
             st.session_state.man_hinh = "che_do_pha_che"
             st.session_state.mon_dang_xem = st.session_state.danh_sach_chon[0]
             st.rerun()
+        else:
+            st.warning("⚠️ Chưa có món nào được chọn!")
 
-    st.divider()
-    st.markdown("### ⚙️ Quản trị hệ thống")
-    if st.button("➕ Thêm món mới", use_container_width=True):
+with c_add:
+    if st.button("➕ Thêm món", use_container_width=True):
         st.session_state.mo_dialog_them = True
-    
-    st.divider()
-    if st.button("🚪 Đăng xuất", use_container_width=True):
+
+with c_out:
+    if st.button("🚪 Thoát", use_container_width=True):
         st.session_state.da_dang_nhap = False
         st.rerun()
+
+st.divider()
 
 # ----------------- POPUP THÊM MÓN MỚI -----------------
 @st.dialog("➕ Thêm công thức món mới", width="large")
@@ -147,13 +155,12 @@ if st.session_state.man_hinh == "chon_nhom":
     danh_sach_nhom = [n for n in df["Nhóm"].unique() if str(n).strip() != ""]
     
     if not danh_sach_nhom:
-        st.warning("⚠️ Chưa có nhóm món nào trong hệ thống. Vui lòng bấm 'Thêm món mới' ở menu bên trái.")
+        st.warning("⚠️ Chưa có nhóm món nào trong hệ thống. Vui lòng bấm nút 'Thêm món' ở phía trên.")
     else:
-        # Hiển thị các nhóm dạng các nút bấm lớn, tối ưu màn hình cảm ứng
+        # Hiển thị các nhóm dạng các nút bấm lớn, tối ưu màn hình cảm ứng (mở rộng rộng hơn do bỏ sidebar)
         cols = st.columns(3, gap="medium")
         for i, nhom in enumerate(danh_sach_nhom):
             with cols[i % 3]:
-                # Đếm số lượng món trong nhóm
                 so_luong_mon = len(df[df["Nhóm"] == nhom])
                 if st.button(f"📁 {nhom}\n\n({so_luong_mon} món)", use_container_width=True, key=f"btn_nhom_{i}HP"):
                     st.session_state.nhom_dang_chon = nhom
@@ -179,8 +186,6 @@ elif st.session_state.man_hinh == "chon_mon":
     st.markdown("💡 **Chạm/Click chọn các món cần pha chế**, sau đó bấm nút **'Bắt đầu pha chế'** ở bên dưới:")
 
     df_nhom = df[df["Nhóm"] == nhom_hien_tai]
-    
-    # Hiển thị danh sách món trong nhóm kèm checkbox chọn nhiều món
     danh_sach_tam = st.session_state.danh_sach_chon
     
     for idx, row in df_nhom.iterrows():
@@ -189,7 +194,6 @@ elif st.session_state.man_hinh == "chon_mon":
         
         c_check, c_name, c_btn = st.columns([0.5, 4, 1.5])
         with c_check:
-            # Checkbox trạng thái chọn món
             is_checked = st.checkbox("Chọn", value=da_chon, key=f"chk_mon_{idx}", label_visibility="collapsed")
             if is_checked and ten_mon not in danh_sach_tam:
                 st.session_state.danh_sach_chon.append(ten_mon)
@@ -199,12 +203,10 @@ elif st.session_state.man_hinh == "chon_mon":
             st.markdown(f"#### {ten_mon}")
         with c_btn:
             if st.button("🔍 Xem nhanh", key=f"xem_nhanh_{idx}", use_container_width=True):
-                # Xem chi tiết popup công thức nhanh
                 st.session_state.mon_xem_nhanh = row
                 st.rerun()
         st.divider()
 
-    # Nút chuyển sang màn hình pha chế chính thức
     if st.session_state.danh_sach_chon:
         st.markdown("")
         if st.button(f"🚀 BẮT ĐẦU PHA CHẾ ({len(st.session_state.danh_sach_chon)} món đã chọn)", type="primary", use_container_width=True):
@@ -212,7 +214,6 @@ elif st.session_state.man_hinh == "chon_mon":
             st.session_state.mon_dang_xem = st.session_state.danh_sach_chon[0]
             st.rerun()
 
-    # Modal xem nhanh công thức đơn lẻ
     if "mon_xem_nhanh" in st.session_state:
         r = st.session_state.mon_xem_nhanh
         @st.dialog(f"📖 Công thức: {r['Tên món']}", width="large")
@@ -243,16 +244,15 @@ elif st.session_state.man_hinh == "che_do_pha_che":
             st.session_state.man_hinh = "chon_nhom"
             st.rerun()
     else:
-        # Chia bố cục 2 cột: Cột trái (Danh sách món đã chọn), Cột phải (Chi tiết công thức)
-        col_trai, col_phai = st.columns([1.2, 2.8], gap="large")
+        # Bố cục 2 cột tận dụng tối đa chiều rộng màn hình
+        col_trai, col_phai = st.columns([1.2, 3], gap="large")
         
         with col_trai:
-            st.markdown("### 📋 Danh sách món")
+            st.markdown("### 📋 Danh sách món đã chọn")
             st.markdown("*(Chạm vào tên món để xem chi tiết)*")
             st.divider()
             
             for mon in danh_sach_chon:
-                # Kiểm tra nếu là món đang xem thì làm nổi bật nút
                 is_active = (st.session_state.mon_dang_xem == mon)
                 btn_type = "primary" if is_active else "secondary"
                 
@@ -261,7 +261,7 @@ elif st.session_state.man_hinh == "che_do_pha_che":
                     st.rerun()
             
             st.divider()
-            if st.button("➕ Chọn thêm món khác", use_container_width=True):
+            if st.button("➕ Chọn thêm nhóm/món khác", use_container_width=True):
                 st.session_state.man_hinh = "chon_nhom"
                 st.rerun()
                 
@@ -272,8 +272,6 @@ elif st.session_state.man_hinh == "che_do_pha_che":
 
         with col_phai:
             mon_hien_tai = st.session_state.get("mon_dang_xem", danh_sach_chon[0])
-            
-            # Lấy thông tin chi tiết của món hiện tại từ DataFrame
             row_info = df[df["Tên món"] == mon_hien_tai]
             
             if not row_info.empty:
@@ -282,7 +280,6 @@ elif st.session_state.man_hinh == "che_do_pha_che":
                 st.caption(f"Nhóm: {r['Nhóm']}")
                 st.divider()
                 
-                # Hiển thị ảnh nếu có
                 img_name_raw = r.get("Tên file ảnh", "")
                 img_name = str(img_name_raw).strip() if not pd.isna(img_name_raw) else ""
                 if img_name and img_name.lower() != 'nan':
@@ -290,7 +287,6 @@ elif st.session_state.man_hinh == "che_do_pha_che":
                     if os.path.exists(duong_dan_hien_thi):
                         st.image(duong_dan_hien_thi, width=350)
                 
-                # Hiển thị nội dung công thức
                 cong_thuc_ct = str(r.get("Công thức", ""))
                 st.markdown(cong_thuc_ct, unsafe_allow_html=True)
             else:
